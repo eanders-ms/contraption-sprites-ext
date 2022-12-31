@@ -219,6 +219,11 @@ namespace contraption {
                 this.props.push(eqn.props[i].evaluate(x, y));
             }
         }
+
+        stepX(eqn: TriangleEquation) {
+            for (let i = 0; i < eqn.props.length; ++i)
+                this.props[i] = eqn.props[i].stepX(this.props[i]);
+        }
     }
    
     export class PixelShader {
@@ -230,6 +235,14 @@ namespace contraption {
             const yf = y + 0.5;
 
             const p = new PixelData();
+            p.initFromTriangleEquation(eqn, xf, yf);
+
+            while (x < x2) {
+                p.x = x;
+                this.drawPixel(p);
+                p.stepX(eqn);
+                ++x;
+            }
         }
     }
 
@@ -382,16 +395,24 @@ namespace contraption {
                 const dy = (scanlineY - v2.y) + 0.5;
                 const curx1 = v2.x + invslope1 * dy + 0.5;
                 const curx2 = v2.x + invslope2 * dy + 0.5;
-
                 const xl = Math.max(this.minX, curx1 | 0);
                 const xr = Math.min(this.maxX, curx2 | 0);
-
                 this.shader.drawSpan(eqn, xl, scanlineY, xr);
             }
         }
 
         private drawBottomFlatTriangle(eqn: TriangleEquation, v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
+            const invslope1 = (v1.x - v0.x) / (v1.y - v0.y);
+            const invslope2 = (v2.x - v0.x) / (v2.y - v0.y);
 
+            for (let scanlineY = (v0.y + 0.5) | 0; scanlineY < ((v1.y + 0.5) | 0); ++scanlineY) {
+                const dy = (scanlineY - v0.y) + 0.5;
+                const curx1 = v0.x + invslope1 * dy + 0.5;
+                const curx2 = v0.x + invslope2 * dy + 0.5;
+                const xl = Math.max(this.minX, curx1 | 0);
+                const xr = Math.min(this.maxX, curx2 | 0);
+                this.shader.drawSpan(eqn, xl, scanlineY, xr);
+            }
         }
 
         private pixelDataFromVertex(v: RasterizerVertex): PixelData {
