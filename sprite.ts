@@ -3,23 +3,41 @@ namespace contraption {
         id: number;
         body: Body;
         scene: Scene;
-        image: Image;
+
+        static coloredPixelShader = new ColoredPixelShader();
+        static texturedPixelShader = new TexturedPixelShader();
 
         onUpdate: (s: Sprite) => void;
         onRender: (s: Sprite) => void;
 
-        constructor(img: Image) {
+        constructor() {
             this.id = Common.nextId();
+        }
+
+        update(): void {
+            if (this.onUpdate) this.onUpdate(this);
+        }
+
+        render(): void {
+            if (this.onRender) this.onRender(this);
+        }
+    }
+
+    export class ImageSprite extends Sprite {
+        image: Image;
+
+        constructor(img: Image) {
+            super();
             this.setImage(img);
         }
 
         setImage(img: Image) {
-            const r = img.width / 2;
-            const b = img.height / 2;
-            const l = -r;
-            const t = -b;
+            const l = img.width / -2;
+            const t = img.height / -2;
+            const r = -l - 1;
+            const b = -t - 1;
             this.image = img;
-            // This is lazy, could be more efficient.
+            // Get the convex hull of the image. This is a lazy implementation, could be more efficient.
             const points: Vector[] = [];
             for (let y = 0; y < img.height; ++y) {
                 for (let x = 0; x < img.width; ++x) {
@@ -30,24 +48,76 @@ namespace contraption {
             }
             Vector.ClockwiseSortInPlace(points);
             const hull = Vertex.Hull(Vertex.Create(points));
-            const extraPoints: Vector[] = [];
-            extraPoints.push(new Vector(l, t))
-            extraPoints.push(new Vector(r, t));
-            extraPoints.push(new Vector(r, b));
-            extraPoints.push(new Vector(l, b));
+            const imgbox: Vector[] = [];
+            imgbox.push(new Vector(l, t))
+            imgbox.push(new Vector(r, t));
+            imgbox.push(new Vector(r, b));
+            imgbox.push(new Vector(l, b));
             this.body = new Body({
                 vertices: hull,
-                extraPoints
+                extraPoints: imgbox
             });
-            //this.body = Bodies.CreateRectangle(0, 0, img.width, img.height);
         }
 
-        update(): void {
-            if (this.onUpdate) this.onUpdate(this);
+        update() {
+            super.update();
         }
 
-        render(): void {
-            if (this.onRender) this.onRender(this);
+        render() {
+            super.render();
+
+            const camera = this.scene.camera;
+            const vertices = this.body.vertices;
+            const extraPoints = this.body.extraPoints;
+            const renderer = this.scene.renderer;
+
+            const color = this.body.isStatic ? 6 : 5;
+
+            for (let j = 0; j < vertices.length; ++j) {
+                const vA = vertices[j];
+                const vB = vertices[(j + 1) % vertices.length];
+
+                const pA = camera.projectToScreen(vA);
+                const pB = camera.projectToScreen(vB);
+
+                const cmd = new DrawLineCommand(Sprite.coloredPixelShader);
+                const v0 = cmd.v0 = new ColoredVertex();
+                v0.x = pA.x;
+                v0.y = pA.y;
+                v0.color = color;
+
+                const v1 = cmd.v1 = new ColoredVertex();
+                v1.x = pB.x;
+                v1.y = pB.y;
+                v1.color = color;
+
+                renderer.queueDrawCommand(cmd);
+            }
+
+            for (let j = 0; j < extraPoints.length; ++j) {
+                const vA = extraPoints[j];
+                const vB = extraPoints[(j + 1) % extraPoints.length];
+
+                const pA = camera.projectToScreen(vA);
+                const pB = camera.projectToScreen(vB);
+
+                const cmd = new DrawLineCommand(Sprite.coloredPixelShader);
+                const v0 = cmd.v0 = new ColoredVertex();
+                v0.x = pA.x;
+                v0.y = pA.y;
+                v0.color = color + 1;
+
+                const v1 = cmd.v1 = new ColoredVertex();
+                v1.x = pB.x;
+                v1.y = pB.y;
+                v1.color = color + 1;
+
+                renderer.queueDrawCommand(cmd);
+            }
+
+            const pp = camera.projectToScreen(this.body.position);
+            screen.setPixel(pp.x, pp.y, 11);
+
         }
     }
 }

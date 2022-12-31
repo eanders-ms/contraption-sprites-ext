@@ -2,7 +2,7 @@ namespace contraption {
     export class Camera {
         size: Vector;
         pos: Vector;
-        zoom_: number;
+        private zoom_: number;
 
         constructor() {
             this.pos = new Vector();

@@ -12,7 +12,8 @@
         "assets.json",
         "sprite.ts",
         "scene.ts",
-        "camera.ts"
+        "camera.ts",
+        "raster.ts"
     ],
     "testFiles": [
         "test.ts"
