@@ -30,41 +30,6 @@ namespace contraption {
         }
     }
 
-    export class ColoredVertex extends RasterizerVertex {
-        constructor() {
-            super();
-            this.props.push(0); // color
-        }
-
-        get color(): number {
-            return this.props[0];
-        }
-        set color(n: number) {
-            this.props[0] = n;
-        }
-    }
-
-    export class TexturedVertex extends RasterizerVertex {
-        constructor() {
-            super();
-            this.props.push(0); // u
-            this.props.push(0); // v
-        }
-
-        get u(): number {
-            return this.props[0];
-        }
-        set u(n: number) {
-            this.props[0] = n;
-        }
-        get v(): number {
-            return this.props[1];
-        }
-        set v(n: number) {
-            this.props[1] = n;
-        }
-    }
-
     export class DrawCommand {
         shader: PixelShader;
         constructor(shader: PixelShader) {
@@ -137,7 +102,7 @@ namespace contraption {
             this.c = -(this.a * (v0.x + v1.x) + this.b * (v0.y + v1.y)) / 2;
         }
 
-        reset() {}
+        reset() { }
 
         evaluate(x: number, y: number): number {
             return this.a * x + this.b * y + this.c;
@@ -250,6 +215,14 @@ namespace contraption {
 
         reset() { }
 
+        copyFrom(other: PixelData) {
+            this.x = other.x;
+            this.y = other.y;
+            this.props = [];
+            for (let i = 0; i < other.props.length; ++i)
+                this.props.push(other.props[i]);
+        }
+
         initFromVertex(v: RasterizerVertex) {
             this.props = [];
             this.x = v.x;
@@ -269,8 +242,62 @@ namespace contraption {
             for (let i = 0; i < eqn.props.length; ++i)
                 this.props[i] = eqn.props[i].stepX(this.props[i]);
         }
+
+        stepY(eqn: TriangleEquation) {
+            for (let i = 0; i < eqn.props.length; ++i)
+                this.props[i] = eqn.props[i].stepY(this.props[i]);
+        }
     }
-   
+
+    export class EdgeData implements Resettable {
+        static Pool = new ObjectPool<EdgeData>(() => new EdgeData());
+        ev0: number;
+        ev1: number;
+        ev2: number;
+
+        init(eqn: TriangleEquation, x: number, y: number) {
+            this.ev0 = eqn.e0.evaluate(x, y);
+            this.ev1 = eqn.e1.evaluate(x, y);
+            this.ev2 = eqn.e2.evaluate(x, y);
+        }
+
+        reset() { }
+
+        copyFrom(other: EdgeData) {
+            this.ev0 = other.ev0;
+            this.ev1 = other.ev1;
+            this.ev2 = other.ev2;
+        }
+
+        stepX(eqn: TriangleEquation) {
+            this.ev0 = eqn.e0.stepX(this.ev0);
+            this.ev1 = eqn.e1.stepX(this.ev1);
+            this.ev2 = eqn.e2.stepX(this.ev2);
+        }
+
+        stepXScaled(eqn: TriangleEquation, stepSize: number) {
+            this.ev0 = eqn.e0.stepXScaled(this.ev0, stepSize);
+            this.ev1 = eqn.e1.stepXScaled(this.ev1, stepSize);
+            this.ev2 = eqn.e2.stepXScaled(this.ev2, stepSize);
+        }
+
+        stepY(eqn: TriangleEquation) {
+            this.ev0 = eqn.e0.stepY(this.ev0);
+            this.ev1 = eqn.e1.stepY(this.ev1);
+            this.ev2 = eqn.e2.stepY(this.ev2);
+        }
+
+        stepYScaled(eqn: TriangleEquation, stepSize: number) {
+            this.ev0 = eqn.e0.stepYScaled(this.ev0, stepSize);
+            this.ev1 = eqn.e1.stepYScaled(this.ev1, stepSize);
+            this.ev2 = eqn.e2.stepYScaled(this.ev2, stepSize);
+        }
+
+        test(eqn: TriangleEquation) {
+            return eqn.e0.testValue(this.ev0) && eqn.e1.testValue(this.ev1) && eqn.e2.testValue(this.ev2);
+        }
+    }
+
     export class PixelShader {
         drawPixel(p: PixelData) {
             // overridden
@@ -291,6 +318,42 @@ namespace contraption {
             }
 
             PixelData.Pool.free(p);
+        }
+        drawBlock(eqn: TriangleEquation, x: number, y: number, testEdges: boolean) {
+            const xf = x + 0.5;
+            const yf = y + 0.5;
+
+            const po = PixelData.Pool.alloc();
+            po.initFromTriangleEquation(eqn, xf, yf);
+
+            const eo = EdgeData.Pool.alloc();
+            if (testEdges)
+                eo.init(eqn, xf, yf);
+
+            for (let yy = y; yy < y + BLOCK_SIZE; ++yy) {
+                const pi = PixelData.Pool.alloc();
+                pi.copyFrom(po);
+
+                const ei = EdgeData.Pool.alloc();
+                if (testEdges)
+                    ei.copyFrom(eo);
+
+                for (let xx = x; xx < x + BLOCK_SIZE; ++xx) {
+                    if (!testEdges || ei.test(eqn)) {
+                        pi.x = xx;
+                        pi.y = yy;
+                        this.drawPixel(pi);
+                    }
+
+                    pi.stepX(eqn);
+                    if (testEdges)
+                        ei.stepX(eqn);
+                }
+
+                po.stepY(eqn);
+                if (testEdges)
+                    eo.stepY(eqn);
+            }
         }
     }
 
@@ -317,6 +380,8 @@ namespace contraption {
             }
         }
     }
+
+    const BLOCK_SIZE = 8;
 
     export class Rasterizer {
         minX: number;
@@ -374,13 +439,95 @@ namespace contraption {
 
         drawTriangle(cmd: DrawTriangleCommand) {
             this.drawTriangleSpan(cmd.v0, cmd.v1, cmd.v2);
+            //this.drawTriangleBlock(cmd.v0, cmd.v1, cmd.v2);
+        }
+
+        private drawTriangleBlock(v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
+            const eqn = TriangleEquation.Pool.alloc(); eqn.init(v0, v1, v2);
+
+            // If triangle is backfacing, return (maybe not desired in 2d world)
+            if (eqn.area2 <= 0) {
+                TriangleEquation.Pool.free(eqn);
+                return;
+            }
+
+            // Compute triangle bounding box.
+            let minX = Math.min(Math.min(v0.x, v1.x), v2.x) | 0;
+            let maxX = Math.max(Math.max(v0.x, v1.x), v2.x) | 0;
+            let minY = Math.min(Math.min(v0.y, v1.y), v2.y) | 0;
+            let maxY = Math.max(Math.max(v0.y, v1.y), v2.y) | 0;
+
+            // Clip to scissor rect.
+            minX = Math.max(minX, this.minX);
+            maxX = Math.min(maxX, this.maxX);
+            minY = Math.max(minY, this.minY);
+            maxY = Math.min(maxY, this.maxY);
+
+            // Round to block grid.
+            minX = minX & ~(BLOCK_SIZE - 1);
+            maxX = maxX & ~(BLOCK_SIZE - 1);
+            minY = minY & ~(BLOCK_SIZE - 1);
+            maxY = maxY & ~(BLOCK_SIZE - 1);
+
+            const s = BLOCK_SIZE - 1;
+
+            const stepsX = (maxX - minX) / BLOCK_SIZE + 1;
+            const stepsY = (maxY - minY) / BLOCK_SIZE + 1;
+
+            for (let i = 0; i < stepsX * stepsY; ++i) {
+                const sx = i % stepsX;
+                const sy = i / stepsX;
+
+                // Add 0.5 to sample at pixel centers.
+                const x = minX + sx * BLOCK_SIZE;
+                const y = minY + sy * BLOCK_SIZE;
+
+                const xf = x + 0.5;
+                const yf = y + 0.5;
+
+                // Test if block is inside or outside triangle or touches it.
+                const e00 = EdgeData.Pool.alloc(); e00.init(eqn, xf, yf);
+                const e01 = EdgeData.Pool.alloc(); e01.copyFrom(e00); e01.stepYScaled(eqn, s);
+                const e10 = EdgeData.Pool.alloc(); e10.copyFrom(e00); e10.stepXScaled(eqn, s);
+                const e11 = EdgeData.Pool.alloc(); e11.copyFrom(e01); e11.stepXScaled(eqn, s);
+
+                const e00_0 = eqn.e0.testValue(e00.ev0), e00_1 = eqn.e1.testValue(e00.ev1), e00_2 = eqn.e2.testValue(e00.ev2), e00_all = (e00_0 && e00_1 && e00_2) ? 1 : 0;
+                const e01_0 = eqn.e0.testValue(e01.ev0), e01_1 = eqn.e1.testValue(e01.ev1), e01_2 = eqn.e2.testValue(e01.ev2), e01_all = (e01_0 && e01_1 && e01_2) ? 1 : 0;
+                const e10_0 = eqn.e0.testValue(e10.ev0), e10_1 = eqn.e1.testValue(e10.ev1), e10_2 = eqn.e2.testValue(e10.ev2), e10_all = (e10_0 && e10_1 && e10_2) ? 1 : 0;
+                const e11_0 = eqn.e0.testValue(e11.ev0), e11_1 = eqn.e1.testValue(e11.ev1), e11_2 = eqn.e2.testValue(e11.ev2), e11_all = (e11_0 && e11_1 && e11_2) ? 1 : 0;
+
+                const result = e00_all + e01_all + e10_all + e11_all;
+
+                // Potentially all out.
+                if (result == 0) {
+                    // Test for special case.
+                    const e00Same = e00_0 == e00_1 == e00_2;
+                    const e01Same = e01_0 == e01_1 == e01_2;
+                    const e10Same = e10_0 == e10_1 == e10_2;
+                    const e11Same = e11_0 == e11_1 == e11_2;
+
+                    if (!e00Same || !e01Same || !e10Same || !e11Same)
+                        this.shader.drawBlock(eqn, x, y, true);
+                } else if (result == 4) {
+                    // Fully Covered.
+                    this.shader.drawBlock(eqn, x, y, false);
+                } else {
+                    // Partially Covered.
+                    this.shader.drawBlock(eqn, x, y, true);
+                }
+            }
+
+            TriangleEquation.Pool.free(eqn);
         }
 
         private drawTriangleSpan(v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
             const eqn = TriangleEquation.Pool.alloc(); eqn.init(v0, v1, v2);
 
             // If triangle is backfacing, return (maybe not desired in 2d world)
-            if (eqn.area2 <= 0) return;
+            if (eqn.area2 <= 0) {
+                TriangleEquation.Pool.free(eqn);
+                return;
+            }
 
             let t: RasterizerVertex = v0;
             let m: RasterizerVertex = v1;
@@ -441,6 +588,7 @@ namespace contraption {
                 this.drawBottomFlatTriangle(eqn, t, l, r);
                 this.drawTopFlatTriangle(eqn, l, r, b);
             }
+
             TriangleEquation.Pool.free(eqn);
         }
 

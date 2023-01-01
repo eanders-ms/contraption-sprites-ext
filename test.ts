@@ -21,8 +21,10 @@ const spr1 = new contraption.ImageSprite(img`
     . . c b d d d d d 5 5 5 b b . .
     . . . c c c c c c c c b b . . .
 `);
+
+let rotationSpeed = 0.01;
 spr1.onUpdate = (s) => {
-    s.body.setAngle(s.body.angle + 0.01);
+    s.body.setAngle(s.body.angle + rotationSpeed);
 }
 spr1.onRender = (s) => {
 }
@@ -31,6 +33,25 @@ scn.addSprite(spr1);
 controller.up.addEventListener(ControllerButtonEvent.Pressed, () => {
     scn.camera.zoom += 0.25;
 })
+controller.up.addEventListener(ControllerButtonEvent.Repeated, () => {
+    scn.camera.zoom += 0.25;
+})
 controller.down.addEventListener(ControllerButtonEvent.Pressed, () => {
     scn.camera.zoom -= 0.25;
 })
+controller.down.addEventListener(ControllerButtonEvent.Repeated, () => {
+    scn.camera.zoom -= 0.25;
+})
+controller.left.addEventListener(ControllerButtonEvent.Pressed, () => {
+    rotationSpeed -= 0.01;
+})
+controller.left.addEventListener(ControllerButtonEvent.Repeated, () => {
+    rotationSpeed -= 0.01;
+})
+controller.right.addEventListener(ControllerButtonEvent.Pressed, () => {
+    rotationSpeed += 0.01;
+})
+controller.right.addEventListener(ControllerButtonEvent.Repeated, () => {
+    rotationSpeed += 0.01;
+})
+controller.setRepeatDefault(10, 10);
