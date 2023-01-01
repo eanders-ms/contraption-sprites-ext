@@ -520,6 +520,7 @@ namespace contraption {
             TriangleEquation.Pool.free(eqn);
         }
 
+        // http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
         private drawTriangleSpan(v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
             const eqn = TriangleEquation.Pool.alloc(); eqn.init(v0, v1, v2);
 
