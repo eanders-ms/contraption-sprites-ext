@@ -3,7 +3,7 @@ namespace contraption {
         reset(): void;
     }
 
-    class ObjectPool<T extends Resettable> {
+    export class ObjectPool<T extends Resettable> {
         private pool: T[] = [];
 
         constructor(private factory: () => T) { }
@@ -69,9 +69,6 @@ namespace contraption {
         shader: PixelShader;
         constructor(shader: PixelShader) {
             this.shader = shader;
-        }
-        prepare(rasterizer: Rasterizer) {
-            rasterizer.setPixelShader(this.shader);
         }
         draw(rasterizer: Rasterizer) {
             // overridden
@@ -223,9 +220,11 @@ namespace contraption {
 
             this.area2 = this.e0.c + this.e1.c + this.e2.c;
             if (this.area2 <= 0) return;
+
             const factor = 1.0 / this.area2;
 
-            this.props = [];
+            if (!this.props)
+                this.props = [];
             for (let i = 0; i < v0.props.length; ++i) {
                 const prop = ParameterEquation.Pool.alloc();
                 prop.init(v0.props[i], v1.props[i], v2.props[i], this.e0, this.e1, this.e2, factor)
@@ -239,6 +238,7 @@ namespace contraption {
             EdgeEquation.Pool.free(this.e2);
             for (let i = 0; i < this.props.length; ++i)
                 ParameterEquation.Pool.free(this.props[i]);
+            this.props = [];
         }
     }
 
@@ -280,8 +280,8 @@ namespace contraption {
             const yf = y + 0.5;
 
             const p = PixelData.Pool.alloc();
-            p.y = y;
             p.initFromTriangleEquation(eqn, xf, yf);
+            p.y = y;
 
             while (x < x2) {
                 p.x = x;
@@ -512,7 +512,7 @@ namespace contraption {
         render() {
             for (let i = 0; i < this.cmds.length; ++i) {
                 const cmd = this.cmds[i];
-                cmd.prepare(this.rasterizer);
+                this.rasterizer.setPixelShader(cmd.shader);
                 cmd.draw(this.rasterizer);
             }
             this.cmds = [];

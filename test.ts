@@ -1,7 +1,7 @@
 contraption.Scene.stats = true;
 
 const scn = new contraption.Scene(new contraption.Engine({ gravity: new contraption.Gravity(0, 1, 0) }));
-scn.camera.zoom = 1;
+scn.camera.zoom = 4;
 contraption.Scene.pushScene(scn);
 const spr1 = new contraption.ImageSprite(img`
     . . . . . . . . . . b 5 b . . .
@@ -22,7 +22,7 @@ const spr1 = new contraption.ImageSprite(img`
     . . . c c c c c c c c b b . . .
 `);
 spr1.onUpdate = (s) => {
-    //s.body.setAngle(s.body.angle + 0.01);
+    s.body.setAngle(s.body.angle + 0.01);
 }
 spr1.onRender = (s) => {
 }
