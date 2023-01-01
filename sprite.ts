@@ -49,7 +49,7 @@ namespace contraption {
             const r = -l;
             const b = -t;
             this.image = img;
-            // Get the convex hull of the image. This is a lazy implementation, could be more efficient.
+            // Get the convex hull of the image (a lazy implementation!)
             const points: Vector[] = [];
             for (let y = 0; y < img.height; ++y) {
                 for (let x = 0; x < img.width; ++x) {
@@ -101,8 +101,8 @@ namespace contraption {
             this.tri1.v1.y = lb.y;
             this.tri1.v2.x = lt.x;
             this.tri1.v2.y = lt.y;
-            renderer.queueDrawCommand(this.tri0);
-            renderer.queueDrawCommand(this.tri1);
+            renderer.enqueueDrawCommand(this.tri0);
+            renderer.enqueueDrawCommand(this.tri1);
         }
     }
 }

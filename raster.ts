@@ -21,11 +21,14 @@ namespace contraption {
         }
     }
 
-    export class RasterizerVertex extends Vector {
+    export class RasterizerVertex {
+        x: number;
+        y: number;
         props: number[]; // interpolated vertex properties (tex coords, for example)
 
         constructor() {
-            super();
+            this.x = 0;
+            this.y = 0;
             this.props = [];
         }
     }
@@ -36,7 +39,7 @@ namespace contraption {
             this.shader = shader;
         }
         draw(rasterizer: Rasterizer) {
-            // overridden
+            // override in subclass
         }
     }
 
@@ -133,7 +136,7 @@ namespace contraption {
         }
     }
 
-    // Same as EdgeEquation, just initialized differently for parameter interpolations (tex coords, for example)
+    // Same as EdgeEquation, but initialized differently for parameter interpolations (tex coords, for example)
     export class ParameterEquation implements Resettable {
         static Pool = new ObjectPool<ParameterEquation>(() => new ParameterEquation());
         a: number;
@@ -275,10 +278,10 @@ namespace contraption {
             this.ev2 = eqn.e2.stepX(this.ev2);
         }
 
-        stepXScaled(eqn: TriangleEquation, stepSize: number) {
-            this.ev0 = eqn.e0.stepXScaled(this.ev0, stepSize);
-            this.ev1 = eqn.e1.stepXScaled(this.ev1, stepSize);
-            this.ev2 = eqn.e2.stepXScaled(this.ev2, stepSize);
+        stepXScaled(eqn: TriangleEquation, step: number) {
+            this.ev0 = eqn.e0.stepXScaled(this.ev0, step);
+            this.ev1 = eqn.e1.stepXScaled(this.ev1, step);
+            this.ev2 = eqn.e2.stepXScaled(this.ev2, step);
         }
 
         stepY(eqn: TriangleEquation) {
@@ -287,10 +290,10 @@ namespace contraption {
             this.ev2 = eqn.e2.stepY(this.ev2);
         }
 
-        stepYScaled(eqn: TriangleEquation, stepSize: number) {
-            this.ev0 = eqn.e0.stepYScaled(this.ev0, stepSize);
-            this.ev1 = eqn.e1.stepYScaled(this.ev1, stepSize);
-            this.ev2 = eqn.e2.stepYScaled(this.ev2, stepSize);
+        stepYScaled(eqn: TriangleEquation, step: number) {
+            this.ev0 = eqn.e0.stepYScaled(this.ev0, step);
+            this.ev1 = eqn.e1.stepYScaled(this.ev1, step);
+            this.ev2 = eqn.e2.stepYScaled(this.ev2, step);
         }
 
         test(eqn: TriangleEquation) {
@@ -300,7 +303,7 @@ namespace contraption {
 
     export class PixelShader {
         drawPixel(p: PixelData) {
-            // overridden
+            // override in subclass
         }
         drawSpan(eqn: TriangleEquation, x: number, y: number, x2: number) {
             const xf = x + 0.5;
@@ -411,10 +414,8 @@ namespace contraption {
 
         drawPoint(cmd: DrawPointCommand) {
             const v = cmd.v;
-
             if (!this.scissorTest(v.x, v.y))
                 return;
-
             const p = this.pixelDataFromVertex(v);
             this.shader.drawPixel(p);
             PixelData.Pool.free(p);
@@ -654,7 +655,7 @@ namespace contraption {
             this.rasterizer = new Rasterizer();
         }
 
-        queueDrawCommand(cmd: DrawCommand) {
+        enqueueDrawCommand(cmd: DrawCommand) {
             this.cmds.push(cmd);
         }
 
