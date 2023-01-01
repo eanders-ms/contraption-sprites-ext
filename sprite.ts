@@ -33,13 +33,13 @@ namespace contraption {
             this.tri0 = new DrawTriangleCommand(Sprite.texturedPixelShader);
             this.tri1 = new DrawTriangleCommand(Sprite.texturedPixelShader);
             // set uv coords - tri0
-            this.tri0.v0.props[0] = 0; this.tri0.v0.props[1] = 0;
-            this.tri0.v1.props[0] = 1; this.tri0.v1.props[1] = 0;
-            this.tri0.v2.props[0] = 1; this.tri0.v2.props[1] = 1;
+            this.tri0.v0.props[0] = Fx.zeroFx8; this.tri0.v0.props[1] = Fx.zeroFx8;
+            this.tri0.v1.props[0] = Fx.oneFx8; this.tri0.v1.props[1] = Fx.zeroFx8;
+            this.tri0.v2.props[0] = Fx.oneFx8; this.tri0.v2.props[1] = Fx.oneFx8;
             // set uv coords - tri1
-            this.tri1.v0.props[0] = 1; this.tri1.v0.props[1] = 1;
-            this.tri1.v1.props[0] = 0; this.tri1.v1.props[1] = 1;
-            this.tri1.v2.props[0] = 0; this.tri1.v2.props[1] = 0;
+            this.tri1.v0.props[0] = Fx.oneFx8; this.tri1.v0.props[1] = Fx.oneFx8;
+            this.tri1.v1.props[0] = Fx.zeroFx8; this.tri1.v1.props[1] = Fx.oneFx8;
+            this.tri1.v2.props[0] = Fx.zeroFx8; this.tri1.v2.props[1] = Fx.zeroFx8;
             this.setImage(img);
         }
 
@@ -89,18 +89,18 @@ namespace contraption {
 
             Sprite.texturedPixelShader.texture = this.image;
             // update coords - TODO, only do this when the body motion changes
-            this.tri0.v0.x = lt.x;
-            this.tri0.v0.y = lt.y;
-            this.tri0.v1.x = rt.x;
-            this.tri0.v1.y = rt.y;
-            this.tri0.v2.x = rb.x;
-            this.tri0.v2.y = rb.y;
-            this.tri1.v0.x = rb.x;
-            this.tri1.v0.y = rb.y;
-            this.tri1.v1.x = lb.x;
-            this.tri1.v1.y = lb.y;
-            this.tri1.v2.x = lt.x;
-            this.tri1.v2.y = lt.y;
+            this.tri0.v0.x = Fx8(lt.x);
+            this.tri0.v0.y = Fx8(lt.y);
+            this.tri0.v1.x = Fx8(rt.x);
+            this.tri0.v1.y = Fx8(rt.y);
+            this.tri0.v2.x = Fx8(rb.x);
+            this.tri0.v2.y = Fx8(rb.y);
+            this.tri1.v0.x = Fx8(rb.x);
+            this.tri1.v0.y = Fx8(rb.y);
+            this.tri1.v1.x = Fx8(lb.x);
+            this.tri1.v1.y = Fx8(lb.y);
+            this.tri1.v2.x = Fx8(lt.x);
+            this.tri1.v2.y = Fx8(lt.y);
             renderer.queueDrawCommand(this.tri0);
             renderer.queueDrawCommand(this.tri1);
         }
