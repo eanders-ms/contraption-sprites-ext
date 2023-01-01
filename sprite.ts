@@ -24,18 +24,30 @@ namespace contraption {
     }
 
     export class ImageSprite extends Sprite {
-        image: Image;
+        private image: Image;
+        private tri0: DrawTriangleCommand;
+        private tri1: DrawTriangleCommand;
 
         constructor(img: Image) {
             super();
+            this.tri0 = new DrawTriangleCommand(Sprite.texturedPixelShader);
+            this.tri1 = new DrawTriangleCommand(Sprite.texturedPixelShader);
+            // set uv coords - tri0
+            this.tri0.v0.props[0] = 0; this.tri0.v0.props[1] = 0;
+            this.tri0.v1.props[0] = 1; this.tri0.v1.props[1] = 0;
+            this.tri0.v2.props[0] = 1; this.tri0.v2.props[1] = 1;
+            // set uv coords - tri1
+            this.tri1.v0.props[0] = 1; this.tri1.v0.props[1] = 1;
+            this.tri1.v1.props[0] = 0; this.tri1.v1.props[1] = 1;
+            this.tri1.v2.props[0] = 0; this.tri1.v2.props[1] = 0;
             this.setImage(img);
         }
 
         setImage(img: Image) {
             const l = img.width / -2;
             const t = img.height / -2;
-            const r = -l - 1;
-            const b = -t - 1;
+            const r = -l;
+            const b = -t;
             this.image = img;
             // Get the convex hull of the image. This is a lazy implementation, could be more efficient.
             const points: Vector[] = [];
@@ -48,14 +60,14 @@ namespace contraption {
             }
             Vector.ClockwiseSortInPlace(points);
             const hull = Vertex.Hull(Vertex.Create(points));
-            const imgbox: Vector[] = [];
-            imgbox.push(new Vector(l, t))
-            imgbox.push(new Vector(r, t));
-            imgbox.push(new Vector(r, b));
-            imgbox.push(new Vector(l, b));
+            const corners: Vector[] = [];
+            corners.push(new Vector(l, t))
+            corners.push(new Vector(r, t));
+            corners.push(new Vector(r, b));
+            corners.push(new Vector(l, b));
             this.body = new Body({
                 vertices: hull,
-                extraPoints: imgbox
+                extraPoints: corners
             });
         }
 
@@ -67,57 +79,30 @@ namespace contraption {
             super.render();
 
             const camera = this.scene.camera;
-            const vertices = this.body.vertices;
-            const extraPoints = this.body.extraPoints;
+            const corners = this.body.extraPoints;
             const renderer = this.scene.renderer;
 
-            const color = this.body.isStatic ? 6 : 5;
+            const lt = camera.projectToScreen(corners[0]);
+            const rt = camera.projectToScreen(corners[1]);
+            const rb = camera.projectToScreen(corners[2]);
+            const lb = camera.projectToScreen(corners[3]);
 
-            for (let j = 0; j < vertices.length; ++j) {
-                const vA = vertices[j];
-                const vB = vertices[(j + 1) % vertices.length];
-
-                const pA = camera.projectToScreen(vA);
-                const pB = camera.projectToScreen(vB);
-
-                const cmd = new DrawLineCommand(Sprite.coloredPixelShader);
-                const v0 = cmd.v0 = new ColoredVertex();
-                v0.x = pA.x;
-                v0.y = pA.y;
-                v0.color = color;
-
-                const v1 = cmd.v1 = new ColoredVertex();
-                v1.x = pB.x;
-                v1.y = pB.y;
-                v1.color = color;
-
-                renderer.queueDrawCommand(cmd);
-            }
-
-            for (let j = 0; j < extraPoints.length; ++j) {
-                const vA = extraPoints[j];
-                const vB = extraPoints[(j + 1) % extraPoints.length];
-
-                const pA = camera.projectToScreen(vA);
-                const pB = camera.projectToScreen(vB);
-
-                const cmd = new DrawLineCommand(Sprite.coloredPixelShader);
-                const v0 = cmd.v0 = new ColoredVertex();
-                v0.x = pA.x;
-                v0.y = pA.y;
-                v0.color = color + 1;
-
-                const v1 = cmd.v1 = new ColoredVertex();
-                v1.x = pB.x;
-                v1.y = pB.y;
-                v1.color = color + 1;
-
-                renderer.queueDrawCommand(cmd);
-            }
-
-            const pp = camera.projectToScreen(this.body.position);
-            screen.setPixel(pp.x, pp.y, 11);
-
+            Sprite.texturedPixelShader.texture = this.image;
+            // update coords - TODO, only do this when the body motion changes
+            this.tri0.v0.x = lt.x;
+            this.tri0.v0.y = lt.y;
+            this.tri0.v1.x = rt.x;
+            this.tri0.v1.y = rt.y;
+            this.tri0.v2.x = rb.x;
+            this.tri0.v2.y = rb.y;
+            this.tri1.v0.x = rb.x;
+            this.tri1.v0.y = rb.y;
+            this.tri1.v1.x = lb.x;
+            this.tri1.v1.y = lb.y;
+            this.tri1.v2.x = lt.x;
+            this.tri1.v2.y = lt.y;
+            renderer.queueDrawCommand(this.tri0);
+            renderer.queueDrawCommand(this.tri1);
         }
     }
 }

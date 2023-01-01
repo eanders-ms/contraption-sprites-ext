@@ -1,4 +1,26 @@
 namespace contraption {
+    export interface Resettable {
+        reset(): void;
+    }
+
+    class ObjectPool<T extends Resettable> {
+        private pool: T[] = [];
+
+        constructor(private factory: () => T) { }
+
+        alloc(): T {
+            if (this.pool.length) {
+                return this.pool.pop();
+            }
+            return this.factory();
+        }
+
+        free(obj: T) {
+            obj.reset();
+            this.pool.push(obj);
+        }
+    }
+
     export class RasterizerVertex extends Vector {
         props: number[]; // interpolated vertex properties (tex coords, for example)
 
@@ -104,17 +126,21 @@ namespace contraption {
     // Edge equation described in many places, including:
     // * https://www.cs.unc.edu/xcms/courses/comp770-s07/Lecture08.pdf
     // * https://www.researchgate.net/publication/286441992_Accelerated_Half-Space_Triangle_Rasterization
-    export class EdgeEquation {
+    export class EdgeEquation implements Resettable {
+        static Pool = new ObjectPool<EdgeEquation>(() => new EdgeEquation());
+
         a: number;
         b: number;
         c: number;
         tie: boolean;
 
-        constructor(v0: RasterizerVertex, v1: RasterizerVertex) {
+        init(v0: RasterizerVertex, v1: RasterizerVertex) {
             this.a = v0.y - v1.y;
             this.b = v1.x - v0.x;
             this.c = -(this.a * (v0.x + v1.x) + this.b * (v0.y + v1.y)) / 2;
         }
+
+        reset() {}
 
         evaluate(x: number, y: number): number {
             return this.a * x + this.b * y + this.c;
@@ -146,16 +172,19 @@ namespace contraption {
     }
 
     // Same as EdgeEquation, just initialized differently for parameter interpolations (tex coords, for example)
-    export class ParameterEquation {
+    export class ParameterEquation implements Resettable {
+        static Pool = new ObjectPool<ParameterEquation>(() => new ParameterEquation());
         a: number;
         b: number;
         c: number;
 
-        constructor(p0: number, p1: number, p2: number, e0: EdgeEquation, e1: EdgeEquation, e2: EdgeEquation) {
-            this.a = p0 * e0.a + p1 * e1.a + p2 * e1.a;
-            this.b = p0 * e0.b + p1 * e1.b + p2 * e1.b;
-            this.c = p0 * e0.c + p1 * e1.c + p2 * e1.c;
+        init(p0: number, p1: number, p2: number, e0: EdgeEquation, e1: EdgeEquation, e2: EdgeEquation, factor: number) {
+            this.a = factor * (p0 * e0.a + p1 * e1.a + p2 * e2.a);
+            this.b = factor * (p0 * e0.b + p1 * e1.b + p2 * e2.b);
+            this.c = factor * (p0 * e0.c + p1 * e1.c + p2 * e2.c);
         }
+
+        reset() { }
 
         evaluate(x: number, y: number): number {
             return this.a * x + this.b * y + this.c;
@@ -178,32 +207,48 @@ namespace contraption {
         }
     }
 
-    export class TriangleEquation {
+    export class TriangleEquation implements Resettable {
+        static Pool = new ObjectPool<TriangleEquation>(() => new TriangleEquation());
+
         area2: number;
         e0: EdgeEquation;
         e1: EdgeEquation;
         e2: EdgeEquation;
         props: ParameterEquation[];
 
-        constructor(v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
-            this.e0 = new EdgeEquation(v1, v2);
-            this.e1 = new EdgeEquation(v2, v0);
-            this.e2 = new EdgeEquation(v0, v1);
+        init(v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
+            this.e0 = EdgeEquation.Pool.alloc(); this.e0.init(v1, v2);
+            this.e1 = EdgeEquation.Pool.alloc(); this.e1.init(v2, v0);
+            this.e2 = EdgeEquation.Pool.alloc(); this.e2.init(v0, v1);
 
             this.area2 = this.e0.c + this.e1.c + this.e2.c;
-
             if (this.area2 <= 0) return;
+            const factor = 1.0 / this.area2;
 
+            this.props = [];
             for (let i = 0; i < v0.props.length; ++i) {
-                this.props.push(new ParameterEquation(v0.props[i], v1.props[i], v2.props[i], this.e0, this.e1, this.e2));
+                const prop = ParameterEquation.Pool.alloc();
+                prop.init(v0.props[i], v1.props[i], v2.props[i], this.e0, this.e1, this.e2, factor)
+                this.props.push(prop);
             }
+        }
+
+        reset() {
+            EdgeEquation.Pool.free(this.e0);
+            EdgeEquation.Pool.free(this.e1);
+            EdgeEquation.Pool.free(this.e2);
+            for (let i = 0; i < this.props.length; ++i)
+                ParameterEquation.Pool.free(this.props[i]);
         }
     }
 
-    export class PixelData {
+    export class PixelData implements Resettable {
+        static Pool = new ObjectPool<PixelData>(() => new PixelData());
         x: number;
         y: number;
         props: number[];
+
+        reset() { }
 
         initFromVertex(v: RasterizerVertex) {
             this.props = [];
@@ -234,7 +279,8 @@ namespace contraption {
             const xf = x + 0.5;
             const yf = y + 0.5;
 
-            const p = new PixelData();
+            const p = PixelData.Pool.alloc();
+            p.y = y;
             p.initFromTriangleEquation(eqn, xf, yf);
 
             while (x < x2) {
@@ -243,13 +289,17 @@ namespace contraption {
                 p.stepX(eqn);
                 ++x;
             }
+
+            PixelData.Pool.free(p);
         }
     }
 
     export class ColoredPixelShader extends PixelShader {
         drawPixel(p: PixelData) {
             const c = p.props[0] | 0;
-            screen.setPixel(p.x | 0, p.y | 0, c);
+            if (c) {
+                screen.setPixel(p.x | 0, p.y | 0, c);
+            }
         }
     }
 
@@ -259,7 +309,12 @@ namespace contraption {
         drawPixel(p: PixelData) {
             const u = p.props[0];
             const v = p.props[1];
-            screen.setPixel(p.x | 0, p.y | 0, 8); // todo, lookup pixel color in texture
+            const tx = Math.abs((this.texture.width * u) % this.texture.width) | 0;
+            const ty = Math.abs((this.texture.height * v) % this.texture.height) | 0;
+            const c = this.texture.getPixel(tx, ty);
+            if (c) {
+                screen.setPixel(p.x | 0, p.y | 0, c);
+            }
         }
     }
 
@@ -297,6 +352,7 @@ namespace contraption {
 
             const p = this.pixelDataFromVertex(v);
             this.shader.drawPixel(p);
+            PixelData.Pool.free(p);
         }
 
         drawLine(cmd: DrawLineCommand) {
@@ -312,6 +368,7 @@ namespace contraption {
                 if (this.scissorTest(p.x, p.y))
                     this.shader.drawPixel(p);
                 this.stepVertex(v, step);
+                PixelData.Pool.free(p);
             }
         }
 
@@ -320,7 +377,7 @@ namespace contraption {
         }
 
         private drawTriangleSpan(v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
-            const eqn = new TriangleEquation(v0, v1, v2);
+            const eqn = TriangleEquation.Pool.alloc(); eqn.init(v0, v1, v2);
 
             // If triangle is backfacing, return (maybe not desired in 2d world)
             if (eqn.area2 <= 0) return;
@@ -346,28 +403,27 @@ namespace contraption {
                 m = tmp;
             }
 
-            const dy = (b.y - t.y);
-            const iy = (m.y - t.y);
-
             if (m.y === t.y) {
                 let l = m;
                 let r = t;
                 if (l.x > r.x) {
-                    const t = l;
+                    const tmp = l;
                     l = r;
-                    r = t;
+                    r = tmp;
                 }
                 this.drawTopFlatTriangle(eqn, l, r, b);
             } else if (m.y === b.y) {
                 let l = m;
                 let r = b;
                 if (l.x > r.x) {
-                    const t = l;
+                    const tmp = l;
                     l = r;
-                    r = t;
+                    r = tmp;
                 }
                 this.drawBottomFlatTriangle(eqn, t, l, r);
             } else {
+                const dy = (b.y - t.y);
+                const iy = (m.y - t.y);
                 const v4 = new RasterizerVertex();
                 v4.y = m.y;
                 v4.x = t.x + ((b.x - t.x) / dy) * iy;
@@ -385,6 +441,7 @@ namespace contraption {
                 this.drawBottomFlatTriangle(eqn, t, l, r);
                 this.drawTopFlatTriangle(eqn, l, r, b);
             }
+            TriangleEquation.Pool.free(eqn);
         }
 
         private drawTopFlatTriangle(eqn: TriangleEquation, v0: RasterizerVertex, v1: RasterizerVertex, v2: RasterizerVertex) {
@@ -416,7 +473,7 @@ namespace contraption {
         }
 
         private pixelDataFromVertex(v: RasterizerVertex): PixelData {
-            const p = new PixelData();
+            const p = PixelData.Pool.alloc();
             p.initFromVertex(v);
             return p;
         }
