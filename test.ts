@@ -62,4 +62,7 @@ controller.right.addEventListener(ControllerButtonEvent.Pressed, () => {
 controller.right.addEventListener(ControllerButtonEvent.Repeated, () => {
     rotationSpeed += 0.01;
 })
+controller.A.addEventListener(ControllerButtonEvent.Pressed, () => {
+    rotationSpeed = 0;
+})
 controller.setRepeatDefault(10, 10);

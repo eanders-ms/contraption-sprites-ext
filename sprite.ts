@@ -82,12 +82,14 @@ namespace contraption {
             const corners = this.body.extraPoints;
             const renderer = this.scene.renderer;
 
+            // sprite image corners
             const lt = camera.projectToScreen(corners[0]);
             const rt = camera.projectToScreen(corners[1]);
             const rb = camera.projectToScreen(corners[2]);
             const lb = camera.projectToScreen(corners[3]);
 
             Sprite.texturedPixelShader.texture = this.image;
+
             // update coords - TODO, only do this when the body motion changes
             this.tri0.v0.x = lt.x;
             this.tri0.v0.y = lt.y;
@@ -95,12 +97,14 @@ namespace contraption {
             this.tri0.v1.y = rt.y;
             this.tri0.v2.x = rb.x;
             this.tri0.v2.y = rb.y;
+
             this.tri1.v0.x = rb.x;
             this.tri1.v0.y = rb.y;
             this.tri1.v1.x = lb.x;
             this.tri1.v1.y = lb.y;
             this.tri1.v2.x = lt.x;
             this.tri1.v2.y = lt.y;
+
             renderer.enqueueDrawCommand(this.tri0);
             renderer.enqueueDrawCommand(this.tri1);
         }
