@@ -4,8 +4,8 @@ namespace contraption {
         body: Body;
         scene: Scene;
 
-        static coloredPixelShader = new ColoredPixelShader();
-        static texturedPixelShader = new TexturedPixelShader();
+        static coloredPixelShader = new draw.ColoredPixelShader();
+        static texturedPixelShader = new draw.TexturedPixelShader();
 
         onUpdate: (s: Sprite) => void;
         onRender: (s: Sprite) => void;
@@ -25,13 +25,13 @@ namespace contraption {
 
     export class ImageSprite extends Sprite {
         private image: Image;
-        private tri0: DrawTriangleCommand;
-        private tri1: DrawTriangleCommand;
+        private tri0: draw.DrawTriangleCommand;
+        private tri1: draw.DrawTriangleCommand;
 
         constructor(img: Image) {
             super();
-            this.tri0 = new DrawTriangleCommand(Sprite.texturedPixelShader);
-            this.tri1 = new DrawTriangleCommand(Sprite.texturedPixelShader);
+            this.tri0 = new draw.DrawTriangleCommand(Sprite.texturedPixelShader);
+            this.tri1 = new draw.DrawTriangleCommand(Sprite.texturedPixelShader);
             // set uv coords - tri0
             this.tri0.v0.props[0] = 0; this.tri0.v0.props[1] = 0;
             this.tri0.v1.props[0] = 1; this.tri0.v1.props[1] = 0;

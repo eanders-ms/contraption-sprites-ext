@@ -3,7 +3,8 @@
     "description": "",
     "dependencies": {
         "device": "*",
-        "contraption-extension": "github:eanders-ms/arcade--contraption-extension#master"
+        "contraption-extension": "github:eanders-ms/arcade--contraption-extension#master",
+        "contraption-renderer": "github:eanders-ms/contraption-renderer#master"
     },
     "files": [
         "main.blocks",
@@ -12,14 +13,13 @@
         "assets.json",
         "sprite.ts",
         "scene.ts",
-        "camera.ts",
-        "raster.ts"
+        "camera.ts"
     ],
     "testFiles": [
         "test.ts"
     ],
     "targetVersions": {
-        "target": "1.12.3",
+        "target": "1.12.7",
         "targetId": "arcade"
     },
     "supportedTargets": [

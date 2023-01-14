@@ -30,7 +30,7 @@ namespace contraption {
         runner: Runner;
         sprites: Sprite[];
         camera: Camera;
-        renderer: Renderer;
+        renderer: draw.Renderer;
 
         constructor(engine?: Engine, runner?: Runner) {
             if (!runner) runner = new Runner();
@@ -38,7 +38,7 @@ namespace contraption {
             this.engine = engine;
             this.runner = runner;
             this.camera = new Camera();
-            this.renderer = new Renderer();
+            this.renderer = new draw.Renderer();
             this.renderer.rasterizer.setScissorRect(0, 0, screen.width, screen.height);
             this.sprites = [];
             this.backgroundColor = 0;
